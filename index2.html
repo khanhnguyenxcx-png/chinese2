@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HSK 1 Spaced Repetition Suite</title>
+    <style>
+        :root {
+            --primary: #3498db;
+            --success: #2ecc71;
+            --warning: #f1c40f;
+            --danger: #e74c3c;
+            --dark: #2c3e50;
+            --light: #f4f4f9;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            background-color: var(--light);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .app-container {
+            width: 100%;
+            max-width: 650px;
+            background: white;
+            padding: 25px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+            box-sizing: border-box;
+            position: relative;
+        }
+        .nav-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 25px;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 10px;
+        }
+        .tab-btn {
+            flex: 1;
+            padding: 12px;
+            font-size: 15px;
+            font-weight: bold;
+            border: none;
+            background: #e0e0e0;
+            color: #666;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .tab-btn.active {
+            background: var(--primary);
+            color: white;
+        }
+        .view-section { display: none; }
+        .view-section.active { display: block; }
+        
+        .stats-panel {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            background: #f8f9fa;
+            padding: 10px 15px;
+            border-radius: 8px;
+            color: var(--dark);
+        }
+
+        .feedback-banner {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            text-align: center;
+            font-weight: bold;
+            display: none;
+        }
+        .feedback-correct { background-color: #d4edda; color: #155724; }
+        .feedback-wrong { background-color: #f8d7da; color: #721c24; }
+
+        /* FIXED: Flat card styling with zero animations */
+        .card-wrapper { height: 230px; margin-bottom: 20px; }
+        .flashcard { 
+            width: 100%; 
+            height: 100%; 
+            border: 2px solid #e0e0e0; 
+            border-radius: 12px; 
+            background: white; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; 
+            align-items: center; 
+            padding: 20px; 
+            box-sizing: border-box; 
+            cursor: pointer;
+        }
+        .flashcard.revealed {
+            border-color: var(--primary);
+            background-color: #fcfdfd;
+        }
+        
+        .card-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            text-align: center;
+        }
+
+        /* UPDATED: Applied KaiTi (Calligraphy/Brush script style) for Chinese Characters */
+        .text-char { 
+            font-family: "KaiTi", "Kaiti SC", "STKaiti", "AR PL UKai", "TW-Kai", serif;
+            font-size: 72px; /* Marginally scaled up as Kaiti tends to look slightly thinner than generic bold sans-serif */
+            font-weight: normal; 
+            color: var(--dark); 
+            margin: 0; 
+        }
+        .text-pinyin { font-size: 32px; font-weight: bold; color: #e67e22; margin: 0 0 10px 0; }
+        .text-meaning { font-size: 20px; color: #7f8c8d; margin: 0; text-align: center; font-weight: 500; }
+        .text-hint { font-size: 11px; color: #b2bec3; position: absolute; bottom: 12px; font-family: -apple-system, sans-serif; }
+        
+        .btn { padding: 12px 20px; font-size: 15px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; }
+        .btn:hover { opacity: 0.9; }
+        .btn-main { width: 100%; background: var(--primary); color: white; }
+        .anki-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+        .btn-again { background: var(--danger); color: white; }
+        .btn-hard { background: var(--warning); color: var(--dark); }
+        .btn-good { background: var(--primary); color: white; }
+        .btn-easy { background: var(--success); color: white; }
+
+        .question-box { background: #f8f9fa; border-radius: 12px; padding: 20px; text-align: center; margin-bottom: 20px; border: 1px solid #e9ecef; }
+        .q-type-label { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #95a5a6; font-weight: bold; margin-bottom: 5px; }
+        
+        /* UPDATED: Added Kaiti stack here as well for Learn mode questions */
+        .q-main { 
+            font-family: "KaiTi", "Kaiti SC", "STKaiti", "AR PL UKai", serif;
+            font-size: 56px; 
+            color: var(--dark); 
+            margin: 10px 0; 
+        }
+        .options-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+        
+        /* UPDATED: Added Kaiti stack to option choices if they feature Hanzi characters */
+        .option-btn { 
+            font-family: "KaiTi", "Kaiti SC", "STKaiti", -apple-system, sans-serif;
+            background: white; 
+            border: 2px solid #e0e0e0; 
+            padding: 14px; 
+            border-radius: 8px; 
+            font-size: 20px; 
+            cursor: pointer; 
+            text-align: left; 
+            transition: all 0.2s; 
+        }
+        .option-btn:hover { border-color: var(--primary); background: #f0f7fc; }
+
+        .reflex-intro { text-align: center; padding: 20px; }
+        .grid-reflex { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 15px; }
+        
+        /* UPDATED: Added Kaiti stack to gaming target grid tokens */
+        .tile { 
+            font-family: "KaiTi", "Kaiti SC", "STKaiti", -apple-system, sans-serif;
+            background: white; 
+            border: 2px solid #cbd5e1; 
+            border-radius: 8px; 
+            padding: 15px 5px; 
+            text-align: center; 
+            font-size: 20px; 
+            font-weight: 600; 
+            cursor: pointer; 
+            user-select: none; 
+            transition: all 0.2s; 
+            min-height: 50px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            word-break: break-word; 
+        }
+        .tile.selected { border-color: var(--primary); background-color: #e0f2fe; color: #0369a1; }
+        .tile.matched { visibility: hidden; opacity: 0; pointer-events: none; }
+        .tile.wrong { border-color: var(--danger); background-color: #fee2e2; animation: shake 0.3s ease; }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+        
+        .debug-box { margin-top: 25px; padding: 10px; background: #eee; border-radius: 6px; font-size: 11px; text-align: center; color: #666; font-family: -apple-system, sans-serif; }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <div class="nav-tabs">
+        <button class="tab-btn active" onclick="switchView('flashcard')">Flashcard (SRS)</button>
+        <button class="tab-btn" onclick="switchView('learn')">Learn Mode</button>
+        <button class="tab-btn" onclick="switchView('reflex')">Reflex Mode</button>
+    </div>
+
+    <div class="feedback-banner" id="feedbackBanner"></div>
+
+    <!-- MODE 1: FLASHCARD (SRS) -->
+    <div id="view-flashcard" class="view-section active">
+        <div class="stats-panel">
+            <span id="fc-count" style="color: var(--danger)">Due Cards: --</span>
+            <span id="fc-mastered" style="color: var(--success)">System Progress: --</span>
+        </div>
+        <div class="card-wrapper" onclick="revealCardData()">
+            <div class="flashcard" id="flashcardObj">
+                <div class="card-content" id="cardContentPane">
+                     <p class="text-char" id="fc-main-display">我</p>
+                     <span class="text-hint" id="fc-hint-text">Click card or button to reveal</span>
+                </div>
+            </div>
+        </div>
+        <button class="btn btn-main" id="fc-reveal-btn" onclick="revealCardData()">Reveal Answer</button>
+        <div class="anki-grid" id="fc-controls" style="display: none;">
+            <button class="btn btn-again" onclick="processSRS(0)">No Good</button>
+            <button class="btn btn-hard" onclick="processSRS(2)">Hard</button>
+            <button class="btn btn-good" onclick="processSRS(4)">Good</button>
+            <button class="btn btn-easy" onclick="processSRS(5)">Very Good</button>
+        </div>
+    </div>
+
+    <!-- MODE 2: LEARN MODE -->
+    <div id="view-learn" class="view-section">
+        <div class="stats-panel">
+            <span id="learn-progress">Question: 1/10</span>
+            <span id="learn-score" style="color: var(--primary)">Points: 0</span>
+        </div>
+        <div class="question-box">
+            <div class="q-type-label" id="learn-type-lbl">Identify Translation</div>
+            <div class="q-main" id="learn-question-display">...</div>
+        </div>
+        <div class="options-grid" id="learn-options-container"></div>
+    </div>
+
+    <!-- MODE 3: REFLEX MATCHING MODE -->
+    <div id="view-reflex" class="view-section">
+        <div class="stats-panel">
+            <span id="reflex-timer" style="color: var(--danger)">Timer: 0.0s</span>
+            <span id="reflex-highscore">Best: --</span>
+        </div>
+        <div class="reflex-intro" id="reflex-start-screen">
+            <h3>Reflex Match Challenge</h3>
+            <p>Match Character tokens with their matching Pinyin or English meaning targets as fast as possible!</p>
+            <button class="btn btn-main" onclick="startReflexGame()">Start Game Loop</button>
+        </div>
+        <div class="grid-reflex" id="reflex-board" style="display: none;"></div>
+    </div>
+    
+    <div class="debug-box">
+        <span onclick="resetAllSrsData()" style="cursor:pointer; text-decoration: underline;">Reset All Saved Progress Data</span>
+    </div>
+</div>
+
+<script>
+    const CORE_WORDS = [
+  { "character": "您", "pinyin": "nín", "meaning": "you (polite)" },
+  { "character": "它", "pinyin": "tā", "meaning": "it" },
+  { "character": "大家", "pinyin": "dàjiā", "meaning": "everyone, everybody" },
+  { "character": "每", "pinyin": "měi", "meaning": "every, each" },
+  { "character": "为什么", "pinyin": "wèishénme", "meaning": "why" },
+  { "character": "零", "pinyin": "líng", "meaning": "zero" },
+  { "character": "两", "pinyin": "liǎng", "meaning": "two (before measure words)" },
+  { "character": "百", "pinyin": "bǎi", "meaning": "hundred" },
+  { "character": "千", "pinyin": "qiān", "meaning": "thousand" },
+  { "character": "第一", "pinyin": "dìyī", "meaning": "first" },
+  { "character": "次", "pinyin": "cì", "meaning": "times, frequency" },
+  { "character": "件", "pinyin": "jiàn", "meaning": "piece, measure word for items" },
+  { "character": "别", "pinyin": "bié", "meaning": "do not, don't" },
+  { "character": "非常", "pinyin": "fēicháng", "meaning": "very, extremely" },
+  { "character": "也", "pinyin": "yě", "meaning": "also, too" },
+  { "character": "还", "pinyin": "hái", "meaning": "still, yet" },
+  { "character": "最", "pinyin": "zuì", "meaning": "the most" },
+  { "character": "真", "pinyin": "zhēn", "meaning": "really, truly" },
+  { "character": "正在", "pinyin": "zhèngzài", "meaning": "in the process of, be being" },
+  { "character": "已经", "pinyin": "yǐjīng", "meaning": "already" },
+  { "character": "一起", "pinyin": "yìqǐ", "meaning": "together" },
+  { "character": "再", "pinyin": "zài", "meaning": "again" },
+  { "character": "就", "pinyin": "jiù", "meaning": "at once, right away" },
+  { "character": "因为……所以……", "pinyin": "yīnwèi…suǒyǐ…", "meaning": "because…so…" },
+  { "character": "虽然……但是……", "pinyin": "suīrán…dànshì…", "meaning": "although…but…" },
+  { "character": "从", "pinyin": "cóng", "meaning": "from" },
+  { "character": "比", "pinyin": "bǐ", "meaning": "comparing to, than" },
+  { "character": "往", "pinyin": "wǎng", "meaning": "toward, to" },
+  { "character": "离", "pinyin": "lí", "meaning": "distance between" },
+  { "character": "得", "pinyin": "de", "meaning": "structural particle" },
+  { "character": "着", "pinyin": "zhe", "meaning": "continuous particle" },
+  { "character": "过", "pinyin": "guò", "meaning": "past experience particle" },
+  { "character": "吧", "pinyin": "ba", "meaning": "suggestion particle" },
+  { "character": "机场", "pinyin": "jīchǎng", "meaning": "airport" },
+  { "character": "教室", "pinyin": "jiàoshì", "meaning": "classroom" },
+  { "character": "房间", "pinyin": "fángjiān", "meaning": "room" },
+  { "character": "路", "pinyin": "lù", "meaning": "road" },
+  { "character": "左边", "pinyin": "zuǒbiān", "meaning": "left" },
+  { "character": "右边", "pinyin": "yòubiān", "meaning": "right" },
+  { "character": "外", "pinyin": "wài", "meaning": "outside" },
+  { "character": "旁边", "pinyin": "pángbiān", "meaning": "side, next to" },
+  { "character": "一下", "pinyin": "yīxià", "meaning": "in a short while, briefly" },
+  { "character": "早上", "pinyin": "zǎoshàng", "meaning": "morning" },
+  { "character": "晚上", "pinyin": "wǎnshàng", "meaning": "night, evening" },
+  { "character": "小时", "pinyin": "xiǎoshí", "meaning": "hour" },
+  { "character": "时间", "pinyin": "shíjiān", "meaning": "time" },
+  { "character": "去年", "pinyin": "qùnián", "meaning": "last year" },
+  { "character": "日", "pinyin": "rì", "meaning": "date, day" },
+  { "character": "生日", "pinyin": "shēngrì", "meaning": "birthday" },
+  { "character": "哥哥", "pinyin": "gēge", "meaning": "older brother" },
+  { "character": "姐姐", "pinyin": "jiějie", "meaning": "older sister" },
+  { "character": "弟弟", "pinyin": "dìdi", "meaning": "younger brother" },
+  { "character": "妹妹", "pinyin": "mèimei", "meaning": "younger sister" },
+  { "character": "丈夫", "pinyin": "zhàngfuh", "meaning": "husband" },
+  { "character": "妻子", "pinyin": "qīzi", "meaning": "wife" },
+  { "character": "孩子", "pinyin": "háizi", "meaning": "child" },
+  { "character": "男人", "pinyin": "nánrén", "meaning": "man" },
+  { "character": "女人", "pinyin": "nǚrén", "meaning": "woman" },
+  { "character": "服务员", "pinyin": "fúwùyuán", "meaning": "waiter, server" },
+  { "character": "鱼", "pinyin": "yú", "meaning": "fish" },
+  { "character": "羊肉", "pinyin": "yángròu", "meaning": "mutton, lamb" },
+  { "character": "牛奶", "pinyin": "niúnǎi", "meaning": "milk" },
+  { "character": "鸡蛋", "pinyin": "jīdàn", "meaning": "egg" },
+  { "character": "西瓜", "pinyin": "xīguā", "meaning": "watermelon" },
+  { "character": "咖啡", "pinyin": "kāfēi", "meaning": "coffee" },
+  { "character": "雪", "pinyin": "xuě", "meaning": "snow" },
+  { "character": "药", "pinyin": "yào", "meaning": "medicine" },
+  { "character": "手机", "pinyin": "shǒujī", "meaning": "cellphone" },
+  { "character": "手表", "pinyin": "shǒubiǎo", "meaning": "watch" },
+  { "character": "眼睛", "pinyin": "yǎnjing", "meaning": "eye" },
+  { "character": "身体", "pinyin": "shēntǐ", "meaning": "body, health" },
+  { "character": "公共汽车", "pinyin": "gōnggòngqìchē", "meaning": "bus" },
+  { "character": "报纸", "pinyin": "bàozhǐ", "meaning": "newspaper" },
+  { "character": "门", "pinyin": "mén", "meaning": "door" },
+  { "character": "题", "pinyin": "tí", "meaning": "topic, item, problem" },
+  { "character": "课", "pinyin": "kè", "meaning": "lesson, class" },
+  { "character": "姓", "pinyin": "xìng", "meaning": "surname" },
+  { "character": "问题", "pinyin": "wèntí", "meaning": "question, problem" },
+  { "character": "事情", "pinyin": "shìqing", "meaning": "matter, affair" },
+  { "character": "考试", "pinyin": "kǎoshì", "meaning": "exam, test" },
+  { "character": "票", "pinyin": "piào", "meaning": "ticket" },
+  { "character": "意思", "pinyin": "yìsi", "meaning": "meaning" },
+  { "character": "颜色", "pinyin": "yánsè", "meaning": "color" },
+  { "character": "铅笔", "pinyin": "qiánbǐ", "meaning": "pencil" },
+  { "character": "面条", "pinyin": "miàntiáo", "meaning": "noodle" },
+  { "character": "火车站", "pinyin": "huǒchēzhàn", "meaning": "train station" },
+  { "character": "公司", "pinyin": "gōngsī", "meaning": "company" },
+  { "character": "宾馆", "pinyin": "bīngguǎn", "meaning": "hotel" },
+  { "character": "说话", "pinyin": "shuōhuà", "meaning": "talk, speak" },
+  { "character": "卖", "pinyin": "mài", "meaning": "sell" },
+  { "character": "问", "pinyin": "wèn", "meaning": "ask" },
+  { "character": "走", "pinyin": "zǒu", "meaning": "walk, go" },
+  { "character": "进", "pinyin": "jìn", "meaning": "enter" },
+  { "character": "出", "pinyin": "chū", "meaning": "come out, go out" },
+  { "character": "跑步", "pinyin": "pǎobù", "meaning": ["run", "jog"] },
+  { "character": "到", "pinyin": "dào", "meaning": "arrive" },
+  { "character": "穿", "pinyin": "chuān", "meaning": "wear, put on" },
+  { "character": "洗", "pinyin": "xǐ", "meaning": "wash" },
+  { "character": "给", "pinyin": "gěi", "meaning": "give" },
+  { "character": "找", "pinyin": "zhǎo", "meaning": "find, look for" },
+  { "character": "懂", "pinyin": "dǒng", "meaning": "understand" },
+  { "character": "笑", "pinyin": "xiào", "meaning": "smile, laugh" },
+  { "character": "告诉", "pinyin": "gàosù", "meaning": "tell, inform" },
+  { "character": "准备", "pinyin": "zhǔnbèi", "meaning": "prepare" },
+  { "character": "开始", "pinyin": "kāishǐ", "meaning": "begin, start" },
+  { "character": "介绍", "pinyin": "jièshào", "meaning": "introduce" },
+  { "character": "帮助", "pinyin": "bāngzhù", "meaning": "help" },
+  { "character": "玩", "pinyin": "wán", "meaning": "play, have fun" },
+  { "character": "送", "pinyin": "sòng", "meaning": "present, give as a gift, deliver" },
+  { "character": "等", "pinyin": "děng", "meaning": "wait" },
+  { "character": "让", "pinyin": "ràng", "meaning": "let, allow, make" },
+  { "character": "起床", "pinyin": "qǐchuáng", "meaning": "get up" },
+  { "character": "唱歌", "pinyin": "chànggē", "meaning": "sing" },
+  { "character": "跳舞", "pinyin": "tiàowǔ", "meaning": "dance" },
+  { "character": "旅游", "pinyin": "lǚyóu", "meaning": "travel" },
+  { "character": "上班", "pinyin": "shàngbān", "meaning": "go to work, be on duty" },
+  { "character": "生病", "pinyin": "shēngbìng", "meaning": "get ill, get sick" },
+  { "character": "休息", "pinyin": "xiūxi", "meaning": "rest" },
+  { "character": "运动", "pinyin": "yùndòng", "meaning": "exercise, sports" },
+  { "character": "游泳", "pinyin": "yóuyǒng", "meaning": "swim" },
+  { "character": "踢足球", "pinyin": "tīzúqiú", "meaning": "play football, play soccer" },
+  { "character": "打篮球", "pinyin": "dǎlánqiú", "meaning": "play basketball" },
+  { "character": "完", "pinyin": "wán", "meaning": "finish, complete" },
+  { "character": "觉得", "pinyin": "juédé", "meaning": "think, feel" },
+  { "character": "知道", "pinyin": "zhīdao", "meaning": "know" },
+  { "character": "希望", "pinyin": "xīwàng", "meaning": "hope" },
+  { "character": "可以", "pinyin": "kěyǐ", "meaning": "can, may" },
+  { "character": "要", "pinyin": "yào", "meaning": "want, need" },
+  { "character": "可能", "pinyin": "kěnéng", "meaning": "may, possible" },
+  { "character": "高", "pinyin": "gāo", "meaning": "tall, high" },
+  { "character": "红", "pinyin": "hóng", "meaning": "red" },
+  { "character": "白", "pinyin": "bái", "meaning": "white" },
+  { "character": "黑", "pinyin": "hēi", "meaning": "black" },
+  { "character": "忙", "pinyin": "máng", "meaning": "busy" },
+  { "character": "快", "pinyin": "kuài", "meaning": "fast" },
+  { "character": "慢", "pinyin": "màn", "meaning": "slow" },
+  { "character": "远", "pinyin": "yuǎn", "meaning": "far" },
+  { "character": "近", "pinyin": "jìn", "meaning": "close, near" },
+  { "character": "好吃", "pinyin": "hǎochī", "meaning": "delicious" },
+  { "character": "累", "pinyin": "lèi", "meaning": "tired" },
+  { "character": "长", "pinyin": "cháng", "meaning": "long" },
+  { "character": "新", "pinyin": "xīn", "meaning": "new" },
+  { "character": "贵", "pinyin": "guì", "meaning": "expensive" },
+  { "character": "便宜", "pinyin": "piányi", "meaning": "cheap" },
+  { "character": "晴", "pinyin": "qíng", "meaning": "fine, sunny" },
+  { "character": "阴", "pinyin": "yīn", "meaning": "cloudy" },
+  { "character": "错", "pinyin": "cuò", "meaning": "wrong" },
+  { "character": "快乐", "pinyin": "kuàilè", "meaning": "happy" },
+  { "character": "对", "pinyin": "duì", "meaning": "to, towards" },
+  { "character": "对", "pinyin": "duì", "meaning": "right, correct" }
+    ];
+
+    const UNIQUE_WORDS = CORE_WORDS.filter((v,i,a)=>a.findIndex(t=>(t.character===v.character))===i);
+
+    // Flashcard SRS states
+    let srsRegistry = {}; 
+    let activeDueList = [];
+    let currentSrsCard = null;
+    let cardIsRevealed = false;
+
+    // Mini game setups
+    let learnIndex = 1;
+    let learnScore = 0;
+    let currentLearnCard = null;
+    let reflexTimer = null;
+    let reflexTimeElapsed = 0;
+    let selectedTile = null;
+    let reflexBestScore = localStorage.getItem('reflex_pb') || null;
+
+    window.onload = function() {
+        loadSrsDatabase();
+        buildDueQueue();
+        initSrsCardLayout();
+        if(reflexBestScore) {
+            document.getElementById('reflex-highscore').innerText = `Best: ${reflexBestScore}s`;
+        }
+    };
+
+    function loadSrsDatabase() {
+        const stored = localStorage.getItem('hsk1_srs_database');
+        if (stored) {
+            srsRegistry = JSON.parse(stored);
+        } else {
+            srsRegistry = {};
+        }
+        
+        UNIQUE_WORDS.forEach(w => {
+            if (!srsRegistry[w.character]) {
+                srsRegistry[w.character] = {
+                    reps: 0,
+                    interval: 0, 
+                    easeFactor: 2.5,
+                    nextReviewTime: 0 
+                };
+            }
+        });
+        saveSrsToBrowserMemory();
+    }
+
+    function saveSrsToBrowserMemory() {
+        localStorage.setItem('hsk1_srs_database', JSON.stringify(srsRegistry));
+    }
+
+    function buildDueQueue() {
+        const now = Date.now();
+        activeDueList = [];
+        
+        UNIQUE_WORDS.forEach(w => {
+            const tracking = srsRegistry[w.character];
+            if (tracking.nextReviewTime <= now) {
+                activeDueList.push(w);
+            }
+        });
+        
+        activeDueList.sort(() => Math.random() - 0.5);
+    }
+
+    function initSrsCardLayout() {
+        cardIsRevealed = false;
+        const totalMastered = Object.values(srsRegistry).filter(v => v.interval >= 7).length;
+        document.getElementById('fc-mastered').innerText = `Long Term: ${totalMastered}/150`;
+
+        const card = document.getElementById('flashcardObj');
+        const content = document.getElementById('cardContentPane');
+        
+        card.classList.remove('revealed');
+
+        if (activeDueList.length === 0) {
+            document.getElementById('fc-count').innerText = "Due Cards: 0";
+            content.innerHTML = `
+                <p class="text-char" style="font-family:-apple-system, sans-serif; font-size:48px;">🎉 Clean!</p>
+                <p class="text-meaning" style="margin-top:10px;">Your scheduled items are clear. Come back later!</p>
+            `;
+            document.getElementById('fc-reveal-btn').setAttribute("disabled", "true");
+            currentSrsCard = null;
+            return;
+        }
+
+        document.getElementById('fc-reveal-btn').removeAttribute("disabled");
+        document.getElementById('fc-count').innerText = `Due Cards: ${activeDueList.length}`;
+        
+        currentSrsCard = activeDueList[0];
+        
+        // Dynamic flat replacement text injection string
+        content.innerHTML = `
+            <p class="text-char">${currentSrsCard.character}</p>
+            <span class="text-hint">Click card or button to reveal</span>
+        `;
+        
+        document.getElementById('fc-reveal-btn').style.display = 'block';
+        document.getElementById('fc-controls').style.display = 'none';
+    }
+
+    // Instantly switches content with zero motion components
+    function revealCardData() {
+        if (cardIsRevealed || !currentSrsCard) return;
+        cardIsRevealed = true;
+
+        const card = document.getElementById('flashcardObj');
+        const content = document.getElementById('cardContentPane');
+
+        card.classList.add('revealed');
+        content.innerHTML = `
+            <p class="text-pinyin">${currentSrsCard.pinyin}</p>
+            <p class="text-meaning">${currentSrsCard.meaning}</p>
+        `;
+        
+        document.getElementById('fc-reveal-btn').style.display = 'none';
+        document.getElementById('fc-controls').style.display = 'grid';
+    }
+
+    function processSRS(qualityScore) {
+        const charKey = currentSrsCard.character;
+        let record = srsRegistry[charKey];
+
+        if (qualityScore < 3) {
+            record.reps = 0;
+            record.interval = 0; 
+        } else {
+            if (record.reps === 0) {
+                record.interval = 0.01; 
+            } else if (record.reps === 1) {
+                record.interval = 1; 
+            } else if (record.reps === 2) {
+                record.interval = 4; 
+            } else {
+                record.interval = Math.round(record.interval * record.easeFactor);
+            }
+            record.reps += 1;
+        }
+
+        record.easeFactor = record.easeFactor + (0.1 - (5 - qualityScore) * (0.08 + (5 - qualityScore) * 0.02));
+        if (record.easeFactor < 1.3) record.easeFactor = 1.3;
+
+        const addedMilliseconds = record.interval * 24 * 60 * 60 * 1000;
+        record.nextReviewTime = Date.now() + addedMilliseconds;
+
+        srsRegistry[charKey] = record;
+        saveSrsToBrowserMemory();
+        hideNotification();
+
+        buildDueQueue();
+        initSrsCardLayout();
+    }
+
+    function resetAllSrsData() {
+        if(confirm("Are you sure you want to completely erase your saved review history points and restart from zero?")) {
+            localStorage.removeItem('hsk1_srs_database');
+            loadSrsDatabase();
+            buildDueQueue();
+            initSrsCardLayout();
+            showNotification("Memory storage database purged successfully.", true);
+        }
+    }
+
+    function switchView(view) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
+        hideNotification();
+        
+        event.target.classList.add('active');
+        document.getElementById(`view-${view}`).classList.add('active');
+
+        if (view === 'flashcard') { buildDueQueue(); initSrsCardLayout(); }
+        if (view === 'learn') initLearnQuiz();
+        if (view === 'reflex') resetReflexView();
+    }
+
+    function showNotification(text, isCorrect) {
+        const banner = document.getElementById('feedbackBanner');
+        banner.innerText = text;
+        banner.className = `feedback-banner ${isCorrect ? 'feedback-correct' : 'feedback-wrong'}`;
+        banner.style.display = 'block';
+    }
+    function hideNotification() {
+        document.getElementById('feedbackBanner').style.display = 'none';
+    }
+
+    // LEARN MODE 
+    function initLearnQuiz() { learnIndex = 1; learnScore = 0; loadLearnQuestion(); }
+    function loadLearnQuestion() {
+        if (learnIndex > 10) {
+            showNotification(`🎯 Session Complete! Points: ${learnScore}/10`, true);
+            initLearnQuiz();
+            return;
+        }
+        document.getElementById('learn-progress').innerText = `Question: ${learnIndex}/10`;
+        document.getElementById('learn-score').innerText = `Points: ${learnScore}`;
+        currentLearnCard = UNIQUE_WORDS[Math.floor(Math.random() * UNIQUE_WORDS.length)];
+        const randomMode = Math.floor(Math.random() * 3);
+        const isOneChar = currentLearnCard.character.length === 1;
+
+        if (randomMode === 0 || isOneChar) {
+            document.getElementById('learn-type-lbl').innerText = "Identify Pinyin Representation";
+            document.getElementById('learn-question-display').innerText = currentLearnCard.character;
+            generateLearnOptions("pinyin", isOneChar);
+        } else if (randomMode === 1) {
+            document.getElementById('learn-type-lbl').innerText = "What does this target translate to?";
+            document.getElementById('learn-question-display').innerText = currentLearnCard.character;
+            generateLearnOptions("meaning", null);
+        } else {
+            document.getElementById('learn-type-lbl').innerText = "Find the matching Hanzi character";
+            document.getElementById('learn-question-display').innerText = `${currentLearnCard.pinyin} (${currentLearnCard.meaning})`;
+            generateLearnOptions("character", null);
+        }
+    }
+    function generateLearnOptions(fieldKey, forceOneCharPinyin) {
+        let options = [currentLearnCard];
+        while (options.length < 4) {
+            let candidate = UNIQUE_WORDS[Math.floor(Math.random() * UNIQUE_WORDS.length)];
+            if (forceOneCharPinyin !== null && fieldKey === "pinyin") {
+                if ((candidate.character.length === 1) !== forceOneCharPinyin) continue; 
+            }
+            if (!options.some(o => o.character === candidate.character)) options.push(candidate);
+        }
+        options.sort(() => Math.random() - 0.5);
+        const container = document.getElementById('learn-options-container');
+        container.innerHTML = "";
+        options.forEach(opt => {
+            // Evaluates whether option key strings carry Hanzi characters to style layout fields cleanly
+            const dynamicFont = fieldKey === "character" ? 'style="font-family: \'KaiTi\', \'Kaiti SC\', serif;"' : '';
+            container.innerHTML += `<button class="option-btn" ${dynamicFont} onclick="checkLearnAnswer('${opt.character}')">${opt[fieldKey]}</button>`;
+        });
+    }
+    function checkLearnAnswer(selectedChar) {
+        if (selectedChar === currentLearnCard.character) { learnScore++; showNotification("✓ Correct Answer!", true); } 
+        else { showNotification(`❌ Incorrect. Answer was: ${currentLearnCard.character} -> ${currentLearnCard.pinyin}`, false); }
+        learnIndex++; loadLearnQuestion();
+    }
+
+    // REFLEX MATCHING MODE
+    function resetReflexView() { clearInterval(reflexTimer); document.getElementById('reflex-start-screen').style.display = "block"; document.getElementById('reflex-board').style.display = "none"; document.getElementById('reflex-timer').innerText = "Timer: 0.0s"; }
+    function startReflexGame() {
+        document.getElementById('reflex-start-screen').style.display = "none";
+        const board = document.getElementById('reflex-board'); board.innerHTML = ""; board.style.display = "grid";
+        let selectedWords = []; let pool = [...UNIQUE_WORDS].sort(() => Math.random() - 0.5);
+        for(let i=0; i<4; i++) { selectedWords.push(pool[i]); }
+        let tiles = [];
+        selectedWords.forEach(w => {
+            tiles.push({ id: w.character, text: w.character, type: 'char' });
+            if(Math.random() > 0.5) tiles.push({ id: w.character, text: w.pinyin, type: 'match' });
+            else tiles.push({ id: w.character, text: w.meaning, type: 'match' });
+        });
+        tiles.sort(() => Math.random() - 0.5);
+        tiles.forEach(t => {
+            const el = document.createElement('div'); el.className = 'tile'; el.innerText = t.text; el.dataset.id = t.id; el.dataset.type = t.type;
+            if (t.type === 'char') el.style.fontFamily = '"KaiTi", "Kaiti SC", "STKaiti", serif';
+            el.onclick = () => handleTileClick(el); board.appendChild(el);
+        });
+        reflexTimeElapsed = 0; clearInterval(reflexTimer);
+        reflexTimer = setInterval(() => { reflexTimeElapsed += 0.1; document.getElementById('reflex-timer').innerText = `Timer: ${reflexTimeElapsed.toFixed(1)}s`; }, 100);
+    }
+    function handleTileClick(tile) {
+        if (tile.classList.contains('matched')) return;
+        if (selectedTile === tile) { tile.classList.remove('selected'); selectedTile = null; return; }
+        document.querySelectorAll('.tile.wrong').forEach(t => t.classList.remove('wrong'));
+        if (!selectedTile) { selectedTile = tile; tile.classList.add('selected'); } else {
+            if (selectedTile.dataset.id === tile.dataset.id && selectedTile.dataset.type !== tile.dataset.type) {
+                selectedTile.classList.add('matched'); tile.classList.add('matched'); selectedTile = null; checkReflexWinCondition();
+            } else {
+                selectedTile.classList.remove('selected'); selectedTile.classList.add('wrong'); tile.classList.add('wrong'); selectedTile = null;
+            }
+        }
+    }
+    function checkReflexWinCondition() {
+        const remaining = document.querySelectorAll('.tile:not(.matched)');
+        if (remaining.length === 0) {
+            clearInterval(reflexTimer); const score = reflexTimeElapsed.toFixed(1);
+            if (!reflexBestScore || parseFloat(score) < parseFloat(reflexBestScore)) {
+                reflexBestScore = score; localStorage.setItem('reflex_pb', score);
+                document.getElementById('reflex-highscore').innerText = `Best: ${reflexBestScore}s`;
+            }
+            showNotification(`⚡ Finished in ${score}s!`, true); resetReflexView();
+        }
+    }
+</script>
+</body>
+</html>
